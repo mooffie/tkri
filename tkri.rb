@@ -16,7 +16,7 @@ COMMAND = {
   # is used.
   'default' => 'qri -f ansi "%s"',
   /linux/   => 'qri -f ansi "%s" 2>&1',
-  # @todo Can we do "2>&1" on macosx? What's its RUBY_PLATFORM? Mail me.
+  /darwin/  => 'qri -f ansi "%s" 2>&1',
 }
   
 TAGS = {
@@ -432,7 +432,7 @@ class App
         ['Close tab', proc { @tabs.close @tabs.current }, 0, 'Ctrl+W' ],
         '---',
         ['Quit', proc { exit }, 0, 'Ctrl+Q' ]],
-      [['Seach', 0],
+      [['Search', 0],
         ['Search', proc { search }, 0, '/'],
         ['Repeat search', proc { search_next }, 0, 'n'],
         ['Repeat backwards', proc { search_prev }, 7, 'N']],
