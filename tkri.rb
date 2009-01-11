@@ -272,6 +272,9 @@ class Tab < TkFrame
       'Array'
     when 'H', 'h', 'hash'
       'Hash'
+    when 'File::new'
+      # See qri bug at http://rubyforge.org/tracker/index.php?func=detail&aid=23504&group_id=2545&atid=9811
+      'File#new'
     else
       topic
     end
