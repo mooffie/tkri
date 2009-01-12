@@ -583,9 +583,3 @@ EOS
 end
 
 end # module Tkri
-
-app = Tkri::App.new
-ARGV.each do |topic|
-  app.go topic, true
-end
-app.run
