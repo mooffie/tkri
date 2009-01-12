@@ -1,0 +1,11 @@
+== tkri
+
+tkri is a GUI front-end to the 'ri', or 'qri', executables. It displays 
+their output in a window where each word is "hyperlinked".
+
+== Use
+
+Launch it by typing 'tkri' at the operating system prompt. You can 
+provide a starting topic as an argument on the command line. Inside the 
+application, type the topic you wish to go to at the address bar, or 
+click on a word in the main text.
