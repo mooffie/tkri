@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require '../lib/tkri'
+require 'tkri'
 
 app = Tkri::App.new
 ARGV.each do |topic|
