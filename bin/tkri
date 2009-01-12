@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+
+require '../lib/tkri'
+
+app = Tkri::App.new
+ARGV.each do |topic|
+  app.go topic, true
+end
+app.run
