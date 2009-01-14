@@ -1,6 +1,15 @@
 #!/usr/bin/env ruby
 
-require 'tkri'
+begin
+  # If we were installed using the Gem system:
+  require 'tkri'
+rescue LoadError => load_error
+  # No, we weren't installed as a Gem. We need to make Ruby aware
+  # of our library folder.
+  lib = File.join(File.dirname(__FILE__), '..', 'lib')
+  $: << lib
+  require 'tkri'
+end
 
 app = Tkri::App.new
 ARGV.each do |topic|
