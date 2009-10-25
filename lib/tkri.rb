@@ -173,6 +173,8 @@ class Tab < TkFrame
     # If I make the following "ButtonRelease-2" instead, the <PasteSelection>
     # cancellation that follows won't work. Strange.
     @info.bind('Button-2')        { |e| go_xy_word(e.x, e.y, true) }
+    @info.bind('Key-Return')      { go_caret_word(); break }
+    @info.bind('Key-KP_Enter')    { go_caret_word(); break }
     @info.bind('ButtonRelease-3') { |e| back }
     @info.bind('Key-BackSpace')   { |e| back; break }
   
@@ -183,7 +185,6 @@ class Tab < TkFrame
     @info.bind('Key-slash') { @app.search;      break }
     @info.bind('Key-n')     { @app.search_next; break }
     @info.bind('Key-N')     { @app.search_prev; break }
-    @info.bind('Key-Return')   { break }
 
     @history = []
   end
@@ -257,7 +258,16 @@ class Tab < TkFrame
       # upon releasing the mouse button.)
       return
     end
-    if (word = get_xy_word(x, y))
+    go_word('@' + x.to_s + ',' + y.to_s, newtab)
+  end
+
+  # Navigate to the topic mentioned under the caret.
+  def go_caret_word(newtab=false)
+    go_word('insert', newtab)
+  end
+
+  def go_word(position, newtab=false)
+    if (word = get_word(position))
       @app.go word, newtab
     end
   end
@@ -276,11 +286,13 @@ class Tab < TkFrame
     return ret[0].empty? ? nil : ret[2]
   end
 
-  # Get the "topic" under the mouse cursor.
-  def get_xy_word(x,y)
-    cursor = '@' + x.to_s + ',' + y.to_s
-    line = @info.get(cursor + ' linestart', cursor + ' lineend')
-    pos  = @info.get(cursor + ' linestart', cursor).length
+  # Get the "topic" at a certain postion.
+  #
+  # The 'position' paramter is an expression that can be, e.g., "insert"
+  # for the current caret position; or "@x,y" for the mouse poisition.
+  def get_word(position)
+    line = @info.get(position + ' linestart', position + ' lineend')
+    pos  = @info.get(position + ' linestart', position).length
 
     line = ' ' + line + '  '
     pos += 1
@@ -301,20 +313,20 @@ class Tab < TkFrame
     end
 
     a -= 1 # Undo the `line = ' ' + line` we did previously.
-    @info.tag_add('keyword', '%s linestart + %d chars' % [ cursor, a ],
-                             '%s linestart + %d chars' % [ cursor, a+word.length ])
+    @info.tag_add('keyword', '%s linestart + %d chars' % [ position, a ],
+                             '%s linestart + %d chars' % [ position, a+word.length ])
     word.strip!
     
     return nil if word.empty?
     return nil if word =~ /^-+$/ # A special case: a line of '-----'
 
-    case get_previous_header(cursor)
+    case get_previous_header(position)
     when 'Instance methods:'
       word = topic + '#' + word
     when 'Class methods:'
       word = topic + '::' + word
     when 'Includes:'
-      word = get_previous_class(cursor) + '#' + word if not word =~ /^[A-Z]/
+      word = get_previous_class(position) + '#' + word if not word =~ /^[A-Z]/
     end
 
     return word
@@ -603,12 +615,14 @@ class App
   def search
     self.status = 'Type the string to search'
     entry = TkEntry.new(@root).pack(:fill => 'x').focus
-    entry.bind('Key-Return') {
-      self.status = ''
-      @search_word = entry.get
-      @tabs.current.search_next_word entry.get
-      entry.destroy
-    }
+    ['Key-Return', 'Key-KP_Enter'].each do |event|
+      entry.bind(event) {
+        self.status = ''
+        @search_word = entry.get
+        @tabs.current.search_next_word entry.get
+        entry.destroy
+      }
+    end
     ['Key-Escape', 'FocusOut'].each do |event|
       entry.bind(event) {
         self.status = ''
@@ -714,6 +728,12 @@ Left-clicking on a word doesn't yet send you to a new page. It's
 *releasing* the button that sends you. This makes it possible to
 select pieces of code: left-click, then drag, then release; since some
 text is now selected, Tkri figures out that's all you wanted.
+
+Right-clicking moves you backward in history. To move forward,
+just hit ENTER. This works because the 'back' command restores the
+caret position as well. Since you're probably holding your mouse,
+you'll find it much more convenient to hit, with your thumb, the
+ENTER on the keypad.
 EOS
   end
 
