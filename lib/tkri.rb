@@ -10,27 +10,116 @@ require 'tk'
 
 module Tkri
 
-COMMAND = {
-  # Each platform may use a different command. The commands are indexed by any
-  # substring in RUBY_PLATFORM. If none matches the platform, the 'default' key
-  # is used.
-  'default' => 'qri -f ansi "%s"',
-  /linux/   => 'qri -f ansi "%s" 2>&1',
-  /darwin/  => 'qri -f ansi "%s" 2>&1',
-}
-  
-TAGS = {
-  'bold'    => { :foreground => 'blue' },
-  'italic'  => { :foreground => '#6b8e23' }, # greenish
-  'code'    => { :foreground => '#1874cd' }, # blueish
-  'header2' => { :background => '#ffe4b5' },
-  'header3' => { :background => '#ffe4b5' },
-  'keyword' => { :foreground => 'red' },
-  'search'  => { :background => 'yellow' },
-  'hidden'  => { :elide => true },
-}
+  # Returns the pathname of the 'rc' file.
+  def self.get_rc_file_path
+    basename = RUBY_PLATFORM.index('mswin') ? '_tkrirc' : '.tkrirc'
+    if ENV['HOME']
+      File.join(ENV['HOME'], basename)
+    else
+      # Probably Windows with no $HOME set. Dir.pwd sucks but is there
+      # anything better to do?  At least the "Help :: About the RC file"
+      # screen displays this value, so the user won't be completely clueless...
+      File.join(Dir.pwd, basename)
+    end
+  end
+
+  module DefaultSettings
+
+    COMMAND = {
+      # Each platform may use a different command. The commands are indexed by any
+      # substring in RUBY_PLATFORM. If none matches the platform, the '__default__' key
+      # is used.
+      '__default__' => 'qri -f ansi "%s"',
+
+      # The "2>&1" thingy tells UNIX shells to print any error messages to the standard output.
+      # This makes it possible to see, inside Tkri, the errors `qri' (or 'ri') happens to emmit
+      # (this happens seldom, due to bugs in `qri', so it's not a very critical feature).
+      'linux'       => 'qri -f ansi "%s" 2>&1',
+      'darwin'      => 'qri -f ansi "%s" 2>&1',
+
+      # And here's the command for MS-Windows.
+      # It turns out Windows' CMD.EXE too supports "2>&1". This shell is used on NT-based
+      # systems. (In other words, if you're using the good old Windows 98, you'll have to remove
+      # this "2>&1").
+      'mswin'       => 'qri.bat -f ansi "%s" 2>&1',
+    }
+
+    TAGS = {
+      # The '__base__' attibutes are applied for every textfield and textarea.
+      # Set the background color and font to whatever you like.
+      #
+      # Font families are designated by an ordered array of names. The first
+      # found on the system will be used. So make sure to put a generic family
+      # name (i.e., one of: 'courier', 'times', 'helvetica') at the end to serve
+      # as a fallback.
+      '__base__' => { :background => '#ffeeff', :font => { :family => ['Bitstream Vera Sans Mono', 'courier'], :size => 10 } },
+      'bold'     => { :foreground => 'blue' },
+      'italic'   => { :foreground => '#6b8e23' }, # greenish
+      'code'     => { :foreground => '#1874cd' }, # blueish
+      'header2'  => { :background => '#ffe4b5', :font => { :family => ['helvetica'], :size => 16 } },
+      'header3'  => { :background => '#ffe4b5', :font => { :family => ['helvetica'], :size => 16 } },
+      'keyword'  => { :foreground => 'red' },
+      'search'   => { :background => 'yellow' },
+      'hidden'   => { :elide => true },
+    }
+ 
+    # Dump these settings into an 'rc' file.
+    def self.dump
+      require 'yaml'
+      open(Tkri.get_rc_file_path, 'w') do |f|
+        f.puts "#"
+        f.puts "# The documentation for these settings can be found in this file:"
+        f.puts "#   " + File.expand_path(__FILE__)
+        f.puts "# Also, see the 'About the `rc` file' under the 'Help' menu."
+        f.puts "#"
+        f.puts "# You may erase any setting in this file for which you want to use"
+        f.puts "# the default value."
+        f.puts "#"
+        f.puts({ 'command' => COMMAND, 'tags' => TAGS }.to_yaml)
+      end
+    end
+
+  end # module DefaultSettings
+
+  module Settings
+    COMMAND = DefaultSettings::COMMAND.dup
+    TAGS = DefaultSettings::TAGS.dup
+
+    # Load the settings from the 'rc' file. We merge them into the existing settings.
+    def self.load
+      if File.exist? Tkri.get_rc_file_path
+        require 'yaml'
+        settings = YAML.load_file(Tkri.get_rc_file_path)
+        if settings.instance_of? Hash
+          COMMAND.merge!(settings['command']) if settings['command']
+          TAGS.merge!(settings['tags']) if settings['tags']
+        end
+      end
+    end
+  end
 
 HistoryEntry = Struct.new(:topic, :cursor, :yview)
+
+# hash_to_configuration() converts any of the TAG hashes, above, to a hash suitable
+# for use in Tk. Corrently, it only converts the :font attribute to a TkFont instance.
+def self.hash_to_configuration(hash)
+  ret = hash.dup
+  if ret[:font].instance_of? Hash
+    if ret[:font][:family]
+      ret[:font] = ret[:font].dup
+      availables = TkFont.families.map { |s| s.downcase }
+      # Select the first family available on this system.
+      Array(ret[:font][:family]).each { |family|
+        if availables.include? family.downcase
+          ret[:font][:family] = family
+          break
+        end
+      }
+    end
+    ret[:font] = TkFont.new(ret[:font])
+  end
+  return ret
+end
 
 # A Tab encapsulates an @address box, where you type the topic to go to; a "Go"
 # button; and an @info box in which to show the topic.
@@ -54,7 +143,8 @@ class Tab < TkFrame
       }
     }
     @address = TkEntry.new(addressbar) {
-      configure :font => 'courier', :width => 30
+      configure Tkri::hash_to_configuration(Settings::TAGS['__base__'])
+      configure :width => 30
       pack :side => 'left', :expand => true, :fill => 'both'
     }
 
@@ -63,6 +153,7 @@ class Tab < TkFrame
     #
     _frame = self
     @info = TkText.new(self) { |t|
+      configure Tkri::hash_to_configuration(Settings::TAGS['__base__'])
       pack :side => 'left', :fill => 'both', :expand => true
       TkScrollbar.new(_frame) { |s|
         pack :side => 'right', :fill => 'y'
@@ -71,7 +162,7 @@ class Tab < TkFrame
       }
     }
 
-    TAGS.each do |name, conf|
+    Settings::TAGS.each do |name, conf|
       @info.tag_configure(name, conf)
     end
 
@@ -92,6 +183,7 @@ class Tab < TkFrame
     @info.bind('Key-slash') { @app.search;      break }
     @info.bind('Key-n')     { @app.search_next; break }
     @info.bind('Key-N')     { @app.search_prev; break }
+    @info.bind('Key-Return')   { break }
 
     @history = []
   end
@@ -429,6 +521,8 @@ class App
   def initialize
     @root = root = TkRoot.new { title 'Tkri' }
     @search_word = nil
+    
+    Settings.load
    
     menu_spec = [
       [['File', 0],
@@ -442,8 +536,10 @@ class App
       # The following :menu_name=>'help' has no effect, but it should have...
       # probably a bug in RubyTK.
       [['Help', 0, { :menu_name => 'help' }],
-        ['General', proc { help_general }, 0],
-        ['Key bindings', proc { help_key_bindings }, 0]],
+        ['Overview', proc { help_overview }, 0],
+        ['Key bindings', proc { help_key_bindings }, 0],
+        ['Tips and tricks', proc { help_tips_and_tricks }, 0],
+        ['About the $HOME/.tkrirc file', proc { help_rc }, 0]],
     ]
     TkMenubar.new(root, menu_spec).pack(:side => 'top', :fill => 'x')
 
@@ -533,7 +629,7 @@ class App
 
     return @ri_cache[topic] if @ri_cache[topic]
 
-    command = COMMAND.select { |k,v| RUBY_PLATFORM.index(k) }.first.to_a[1] || COMMAND['default']
+    command = Settings::COMMAND.select { |k,v| RUBY_PLATFORM.index(k) }.first.to_a[1] || Settings::COMMAND['__default__']
     ri = Kernel.`(command % topic)  # `
     if $? != 0
       ri += "\n" + "ERROR: Failed to run the command '%s' (exit code: %d). Please make sure you have this command in your PATH.\n\nYou may wish to modify this program's source (%s) to update the command to something that works on your system." % [command % topic, $?, $0]
@@ -555,19 +651,33 @@ class App
 
   def helpbox(title, text)
     w = TkToplevel.new(:title => title)
-    TkText.new(w, :height => text.count("\n"), :width => 80).pack.insert('1.0', text)
+    t = TkText.new(w, :height => text.count("\n"), :width => 80).pack.insert('1.0', text)
+    t.configure Tkri::hash_to_configuration(Settings::TAGS['__base__'])
     TkButton.new(w, :text => 'Close', :command => proc { w.destroy }).pack
   end
-  
-  def help_general
-    helpbox('Help: General', <<EOS)
-Tkri (pronounce TIK-ri) is a GUI fron-end to RI (actually, by default,
-to FastRI).
+
+  def help_overview
+    helpbox('Help: Overview', <<EOS)
+ABOUT
+
+Tkri (pronounce TIK-ri) is a GUI front-end to the 'ri', or
+'qri', executables. By default it uses 'qri', which is part
+of the Fast-RI package.
+
+Tkri displays the output of that program in a window where
+each work is "hyperlinked".
+
+USAGE
+
+Launch tkri by typing 'tkri' at the operating system prompt. You
+can provide a starting topic as an argument on the command line.
+Inside the application, type the topic you wish to go to at the
+address bar, or click on a word in the main text.
 EOS
   end
 
   def help_key_bindings
-    helpbox('Help: key bindings', <<EOS)
+    helpbox('Help: Key bindings', <<EOS)
 Left mouse button
     Navigate to the topic under the cursor.
 Middle mouse button
@@ -578,6 +688,57 @@ Ctrl+W. Or right mouse button, on a tab button
     Close the tab (unless this is the only tab).
 Ctrl+L
     Move the keyboard focus to the "address" box, where you can type a topic.
+/
+    Find string in page.
+EOS
+  end
+
+  def help_tips_and_tricks
+    helpbox('Help: Tips and tricks', <<EOS)
+Some random tips:
+
+Type '/' to quickly highlight a string in the page. (If the
+string happens to be off-screen, hit ENTER to jump to it.)
+
+Ctrl+L is probably the fastest way to move the keyboard
+focus to the "address box".
+
+The references for "Hash", "Array" and "String" are the most
+sought-after, so instead of typing their full name in the address
+box you can just type the letters h, a or s, respectively.
+
+You can type the topic(s) directly on the command line;
+e.g., "tkri Array.flatten sort_by"
+
+Left-clicking on a word doesn't yet send you to a new page. It's
+*releasing* the button that sends you. This makes it possible to
+select pieces of code: left-click, then drag, then release; since some
+text is now selected, Tkri figures out that's all you wanted.
+EOS
+  end
+
+  def help_rc
+    helpbox('Help: RC', <<EOS)
+Tkri has some settings. E.g., the colors and fonts it uses.
+
+These settings are hard-coded in the source code. But you can
+override them by having an 'rc' file in your home folder. On
+your system this file is here:
+
+    #{Tkri.get_rc_file_path}
+
+(If it's at a weird place, set your $HOME environment variable.)
+
+Of course, you're a busy person and don't have time to write
+this file from scratch. So you're going to tell Tkri to write
+this file for you; When you type:
+
+    tkri --dump-rc
+
+you're telling Tkri to dump all its default settings into that
+file. Then edit this file to your liking using your text editor.
+Finally, run tkri; it will automatically merge the settings from
+this file onto the hard-coded ones.
 EOS
   end
 end

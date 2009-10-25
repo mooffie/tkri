@@ -13,6 +13,10 @@ end
 
 app = Tkri::App.new
 ARGV.each do |topic|
-  app.go topic, true
+  if topic == '--dump-rc'
+    Tkri::DefaultSettings.dump
+  else
+    app.go topic, true
+  end
 end
 app.run
