@@ -297,6 +297,11 @@ class Tab < TkFrame
     line = ' ' + line + '  '
     pos += 1
     
+    if line[pos,1] == ' '
+      # If the user clicks a space between words, or after end of line, abort.
+      return nil
+    end
+    
     a = pos
     a -= 1 while line[a-1,1] !~ /[ (]/
     z = pos
@@ -735,12 +740,6 @@ Left-clicking on a word doesn't yet send you to a new page. It's
 *releasing* the button that sends you there. This makes it possible to
 select pieces of code: left-click, then drag, then release; since some
 text is now selected, Tkri figures out that's all you wanted.
-
-Right-clicking moves you backward in history. To move forward,
-just hit ENTER. This works because the 'back' command restores the
-caret position as well. Since you're probably holding your mouse,
-you'll find it much more convenient to hit, with your thumb, the
-ENTER that is on the keypad.
 EOS
   end
 
