@@ -105,16 +105,12 @@ HistoryEntry = Struct.new(:topic, :cursor, :yview)
 def self.hash_to_configuration(hash)
   ret = hash.dup
   if ret[:font].instance_of? Hash
+    ret[:font] = ret[:font].dup
     if ret[:font][:family]
-      ret[:font] = ret[:font].dup
       availables = TkFont.families.map { |s| s.downcase }
+      desired = Array(ret[:font][:family]).map { |s| s.downcase }
       # Select the first family available on this system.
-      Array(ret[:font][:family]).each { |family|
-        if availables.include? family.downcase
-          ret[:font][:family] = family
-          break
-        end
-      }
+      ret[:font][:family] = (desired & availables).first || 'courier'
     end
     ret[:font] = TkFont.new(ret[:font])
   end
@@ -162,8 +158,8 @@ class Tab < TkFrame
       }
     }
 
-    Settings::TAGS.each do |name, conf|
-      @info.tag_configure(name, conf)
+    Settings::TAGS.each do |name, hash|
+      @info.tag_configure(name, Tkri::hash_to_configuration(hash))
     end
 
     # Key and mouse bindings
@@ -556,7 +552,8 @@ class App
         ['Overview', proc { help_overview }, 0],
         ['Key bindings', proc { help_key_bindings }, 0],
         ['Tips and tricks', proc { help_tips_and_tricks }, 0],
-        ['About the $HOME/.tkrirc file', proc { help_rc }, 0]],
+        ['About the $HOME/.tkrirc file', proc { help_rc }, 0],
+        ['Known issues', proc { help_known_issues }, 0]],
     ]
     TkMenubar.new(root, menu_spec).pack(:side => 'top', :fill => 'x')
 
@@ -765,6 +762,27 @@ you're telling Tkri to dump all its default settings into that
 file. Then edit this file to your liking using your text editor.
 Finally, run tkri; it will automatically merge the settings from
 this file onto the hard-coded ones.
+EOS
+  end
+
+  def help_known_issues
+    helpbox('Help: Known issues', <<EOS)
+Here's a list of known issues / bugs:
+
+ON THE WINDOWS PLATFORM:
+
+* Tkri looks ugly.
+
+* The mouse wheel works only if the keyboard focus is in the
+  textarea. That's unfortunate. It's a Tk issue, not Tkri's.
+
+* If your $HOME variable contains non-ASCII charcaters, Tkri
+  seems not to be able to deal with the 'rc' file. It's a Ruby
+  issue(?).
+
+ALL PLATFORMS:
+
+* There's a 'backward' command, but no 'forward' command.
 EOS
   end
 end
