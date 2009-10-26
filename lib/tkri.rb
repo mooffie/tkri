@@ -644,23 +644,30 @@ class App
     return @ri_cache[topic] if @ri_cache[topic]
 
     command = Settings::COMMAND.select { |k,v| RUBY_PLATFORM.index(k) }.first.to_a[1] || Settings::COMMAND['__default__']
-    ri = Kernel.`(command % topic)  # `
+    text = Kernel.`(command % topic)  # `
     if $? != 0
-      ri += "\n" + "ERROR: Failed to run the command '%s' (exit code: %d). Please make sure you have this command in your PATH.\n\nYou may wish to modify this program's source (%s) to update the command to something that works on your system." % [command % topic, $?, $0]
+      text += "\n" + "ERROR: Failed to run the command '%s' (exit code: %d). Please make sure you have this command in your PATH.\n\nYou may wish to modify this program's source (%s) to update the command to something that works on your system." % [command % topic, $?, $0]
     else
-      if ri == "nil\n"
-        ri = 'Topic "%s" not found.' % topic
+      if text == "nil\n"
+        text = 'Topic "%s" not found.' % topic
       end
-      @ri_cache[topic] = ri
+      @ri_cache[topic] = text
       @cached_topics << topic
     end
 
+    # Make the "Multiple choices" output easier to read.
+    if text.match /Multiple choices/
+      text.gsub! /,\s+/, "\n"
+      text.gsub! /^ */,  ""
+      text.gsub! /\n/,   "\n     "
+    end
+
     # Remove the oldest topic from the cache
-    if @cached_topics.length > 10
+    if @cached_topics.length > 20
       @ri_cache.delete @cached_topics.shift
     end
     
-    return ri
+    return text
   end
 
   def helpbox(title, text)
@@ -725,7 +732,7 @@ You can type the topic(s) directly on the command line;
 e.g., "tkri Array.flatten sort_by"
 
 Left-clicking on a word doesn't yet send you to a new page. It's
-*releasing* the button that sends you. This makes it possible to
+*releasing* the button that sends you there. This makes it possible to
 select pieces of code: left-click, then drag, then release; since some
 text is now selected, Tkri figures out that's all you wanted.
 
@@ -733,7 +740,7 @@ Right-clicking moves you backward in history. To move forward,
 just hit ENTER. This works because the 'back' command restores the
 caret position as well. Since you're probably holding your mouse,
 you'll find it much more convenient to hit, with your thumb, the
-ENTER on the keypad.
+ENTER that is on the keypad.
 EOS
   end
 
