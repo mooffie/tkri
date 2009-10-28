@@ -52,12 +52,12 @@ module Tkri
       # found on the system will be used. So make sure to put a generic family
       # name (i.e., one of: 'courier', 'times', 'helvetica') at the end to serve
       # as a fallback.
-      '__base__' => { :background => '#ffeeff', :font => { :family => ['Bitstream Vera Sans Mono', 'courier'], :size => 10 } },
+      '__base__' => { :background => '#ffeeff', :font => { :family => ['Bitstream Vera Sans Mono', 'Menlo', 'Monaco', 'Courier'], :size => 10 } },
       'bold'     => { :foreground => 'blue' },
       'italic'   => { :foreground => '#6b8e23' }, # greenish
       'code'     => { :foreground => '#1874cd' }, # blueish
-      'header2'  => { :background => '#ffe4b5', :font => { :family => ['helvetica'], :size => 16 } },
-      'header3'  => { :background => '#ffe4b5', :font => { :family => ['helvetica'], :size => 16 } },
+      'header2'  => { :background => '#ffe4b5', :font => { :family => ['Geneva', 'Arial', 'Helvetica'], :size => 12 } },
+      'header3'  => { :background => '#ffe4b5', :font => { :family => ['Geneva', 'Arial', 'Helvetica'], :size => 14 } },
       'keyword'  => { :foreground => 'red' },
       'search'   => { :background => 'yellow' },
       'hidden'   => { :elide => true },
@@ -181,6 +181,7 @@ class Tab < TkFrame
     @info.bind('Key-slash') { @app.search;      break }
     @info.bind('Key-n')     { @app.search_next; break }
     @info.bind('Key-N')     { @app.search_prev; break }
+    @info.bind('Key-u')     { @app.go_up;       break }
 
     @history = []
   end
@@ -242,6 +243,13 @@ class Tab < TkFrame
       length = (word_or_regexp.is_a? String) ? word_or_regexp.length : $&.length
       @info.tag_add(tag_name, '1.0 + %d chars' % pos,
                               '1.0 + %d chars' % (pos + length))
+    end
+  end
+
+  # Go "up". That is, if we're browsing a method, go to the class.
+  def go_up
+    if topic and topic =~ /(.*)(::|#|\.)/
+      @app.go $1
     end
   end
 
@@ -464,7 +472,7 @@ class Tabsbar < TkFrame
     @tabs.each_with_index do |tab, i|
       b = TkButton.new(self, :text => (tab.topic || '<new>')).pack :side => 'left'
       b.command { set_current_tab i }
-      b.bind('Button-3') { @tabs.close tab }
+      b.bind('Button-2') { @tabs.close tab }
       @buttons << b
     end
 
@@ -564,6 +572,7 @@ class App
     { 'Key-slash' => 'search',
       'Key-n'     => 'search_next',
       'Key-N'     => 'search_prev',
+      'Key-u'     => 'go_up',
     }.each do |event, method|
       root.bind(event) { |e|
         send(method) if e.widget.class != TkEntry
@@ -612,6 +621,10 @@ class App
     else
       search
     end
+  end
+
+  def go_up
+    @tabs.current.go_up
   end
 
   def search
@@ -711,6 +724,9 @@ Ctrl+W. Or right mouse button, on a tab button
     Close the tab (unless this is the only tab).
 Ctrl+L
     Move the keyboard focus to the "address" box, where you can type a topic.
+u
+    Goes "up" one level. That is, if you're browsing Module::Class#method,
+    you'll be directed to Module::Class. Press 'u' again for Module.
 /
     Find string in page.
 EOS
