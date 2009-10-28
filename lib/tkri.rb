@@ -91,8 +91,9 @@ module Tkri
       'b2009' => { :key => 'Alt-Key-9', :source => 'root', :command => 'interactive_switch_to_tab_8' },
       'b2010' => { :key => 'Alt-Key-0', :source => 'root', :command => 'interactive_switch_to_tab_9' },
 
-      # bug: it should close the button's tab. Not the current tab.
-      'b1007' => { :key => 'Button-2', :source => 'tabbutton', :command => 'interactive_close_tab' },
+      # For the following we don't use interactive_close_tab because we want to close the
+      # tab associated with the button, not the current tab.
+      'b1007' => { :key => 'Button-2', :source => 'tabbutton', :command => 'interactive_close_button_tab' },
 
       # 'Prior' and 'Next' are page up and page down, respectively.
       'b1005' => { :key => 'Control-Key-Prior', :source => 'root', :command => 'interactive_switch_to_prev_tab' },
@@ -582,19 +583,22 @@ class Tabsbar < TkFrame
   def build_buttons
     @buttons.each { |b| b.destroy }
     @buttons = []
-
     @tabs.each_with_index do |tab, i|
       b = TkButton.new(self, :text => (tab.topic || '<new>')).pack :side => 'left'
       b.command { set_current_tab_by_index i }
       Tkri.attach_bindings b, 'tabbutton'
       @buttons << b
     end
-
     plus = TkButton.new(self, :text => '+').pack :side => 'left'
     plus.command { @tabs.new_tab }
     @buttons << plus
-
     set_current_tab_by_index @tabs.current_tab_as_index
+  end
+
+  def interactive_close_button_tab e
+    if idx = @buttons.index(e.widget)
+      @tabs.close @tabs.get(idx)
+    end
   end
 end
 
@@ -621,6 +625,10 @@ class Tabs < TkFrame
 
   def interactive_new_tab e
     new_tab
+  end
+
+  def get(i)
+    @tabs[i]
   end
 
   def close(tab)
@@ -741,9 +749,9 @@ class App
   end
 
   # Invokes an "interactive" command (see Settings::BINDINGS).
-  # The command is searched in App, Tabs, Tab, in this order. 
+  # The command is searched in App, Tabs, Tabsbar, Tab, in this order. 
   def invoke_command(command, event)
-    possible_targets = [self, @tabs, @tabs.current_tab]
+    possible_targets = [self, @tabs, @tabsbar, @tabs.current_tab]
     possible_targets.each { |target|
       if target.respond_to?(command, true)
         target.send(command, event)
