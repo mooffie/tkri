@@ -62,7 +62,72 @@ module Tkri
       'search'   => { :background => 'yellow' },
       'hidden'   => { :elide => true },
     }
- 
+
+    BINDINGS = {
+      # The keys (e.g. 'b1001') in this hash are named arbitrarily and are completely
+      # ignored by Tkri. They exist only to enable you to override certain bindings in
+      # your 'rc' file. I'm not going to rename keys, only to add to them (as new
+      # bindings are added to newer versions), so you won't have to update your 'rc'
+      # file whenever you update Tkri.
+
+      # For the :key syntax, see the Tk manual. The :source is the widget to attach the
+      # binding to. The :commands are methods to execute; they're conveniently prefixed
+      # by 'interactive_' to enable you to easily locate all of them in the source code.
+
+      'b1001' => { :key => 'Control-q', :source => 'root', :command => 'interactive_quit' },
+      'b1002' => { :key => 'Control-t', :source => 'root', :command => 'interactive_new_tab' },
+      'b1003' => { :key => 'Control-w', :source => 'root', :command => 'interactive_close_tab' },
+      'b1004' => { :key => 'Control-l', :source => 'root', :command => 'interactive_focus_address' },
+
+      # Note: tabs indexes are zero-based.
+      'b2001' => { :key => 'Alt-Key-1', :source => 'root', :command => 'interactive_switch_to_tab_0' },
+      'b2002' => { :key => 'Alt-Key-2', :source => 'root', :command => 'interactive_switch_to_tab_1' },
+      'b2003' => { :key => 'Alt-Key-3', :source => 'root', :command => 'interactive_switch_to_tab_2' },
+      'b2004' => { :key => 'Alt-Key-4', :source => 'root', :command => 'interactive_switch_to_tab_3' },
+      'b2005' => { :key => 'Alt-Key-5', :source => 'root', :command => 'interactive_switch_to_tab_4' },
+      'b2006' => { :key => 'Alt-Key-6', :source => 'root', :command => 'interactive_switch_to_tab_5' },
+      'b2007' => { :key => 'Alt-Key-7', :source => 'root', :command => 'interactive_switch_to_tab_6' },
+      'b2008' => { :key => 'Alt-Key-8', :source => 'root', :command => 'interactive_switch_to_tab_7' },
+      'b2009' => { :key => 'Alt-Key-9', :source => 'root', :command => 'interactive_switch_to_tab_8' },
+      'b2010' => { :key => 'Alt-Key-0', :source => 'root', :command => 'interactive_switch_to_tab_9' },
+
+      # bug: it should close the button's tab. Not the current tab.
+      'b1007' => { :key => 'Button-2', :source => 'tabbutton', :command => 'interactive_close_tab' },
+
+      # 'Prior' and 'Next' are page up and page down, respectively.
+      'b1005' => { :key => 'Control-Key-Prior', :source => 'root', :command => 'interactive_switch_to_prev_tab' },
+      'b1006' => { :key => 'Control-Key-Next', :source => 'root', :command => 'interactive_switch_to_next_tab' },
+
+      'b1008' => { :key => 'ButtonRelease-1', :source => 'info', :command => 'interactive_goto_topic_under_mouse' },
+      'b1011' => { :key => 'Key-Return', :source => 'info', :command => 'interactive_goto_topic_under_caret_or_selected', :cancel_default => true },
+      'b1012' => { :key => 'Key-Return', :source => 'addressbox', :command => 'interactive_goto_topic_in_addressbox' },
+      # If I make the following "ButtonRelease-2" instead, the <PasteSelection>
+      # cancellation that follows won't work. Strange.
+      'b1009' => { :key => 'Button-2', :source => 'info', :command => 'interactive_goto_topic_under_mouse_in_new_tab', :cancel_default => true },
+      # Under X11, Button-2 is also used to paste the selection. So we disable pasting. All
+      # because Tk doesn't support read-only text widgets.
+      'b1010' => { :key => '<PasteSelection>', :source => 'info',  :cancel_default => true },
+
+      # History.
+      'b1013' => { :key => 'ButtonRelease-3', :source => 'info', :command => 'interactive_history_back' },
+      'b1014' => { :key => 'Key-BackSpace', :source => 'info', :command => 'interactive_history_back', :cancel_default => true },
+
+      # Tk doesn't support read-only rext widgets. So for every "ascii" global binding we also
+      # need to duplicate it on the 'info' widget, :cancel_default'ing it.
+      #
+      # "Global" bindings are those attached to the 'root' window. For "ascii" bindings make sure
+      # to turn on :when_not_tkentry, or else these events will fire up when the key is pressed in
+      # the addressbox too (which is a widget of type TkEntry).
+      'b1015' => { :key => 'Key-slash', :source => 'root', :command => 'interactive_initiate_search', :when_not_tkentry => true },
+      'b1016' => { :key => 'Key-n', :source => 'root', :command => 'interactive_search_next', :when_not_tkentry => true },
+      'b1017' => { :key => 'Key-N', :source => 'root', :command => 'interactive_search_prev', :when_not_tkentry => true },
+      'b1018' => { :key => 'Key-u', :source => 'root', :command => 'interactive_go_up', :when_not_tkentry => true },
+      'b1019' => { :key => 'Key-slash', :source => 'info', :command => 'interactive_initiate_search', :cancel_default => true },
+      'b1020' => { :key => 'Key-n', :source => 'info', :command => 'interactive_search_next', :cancel_default => true },
+      'b1021' => { :key => 'Key-N', :source => 'info', :command => 'interactive_search_prev', :cancel_default => true },
+      'b1022' => { :key => 'Key-u', :source => 'info', :command => 'interactive_go_up', :cancel_default => true },
+    }
+
     # Dump these settings into an 'rc' file.
     def self.dump
       require 'yaml'
@@ -75,15 +140,20 @@ module Tkri
         f.puts "# You may erase any setting in this file for which you want to use"
         f.puts "# the default value."
         f.puts "#"
-        f.puts({ 'command' => COMMAND, 'tags' => TAGS }.to_yaml)
+        f.puts({ 'command' => COMMAND, 'tags' => TAGS, 'bindings' => BINDINGS }.to_yaml)
       end
     end
 
   end # module DefaultSettings
 
+  class << self
+    attr_accessor :the_application
+  end
+
   module Settings
     COMMAND = DefaultSettings::COMMAND.dup
     TAGS = DefaultSettings::TAGS.dup
+    BINDINGS = DefaultSettings::BINDINGS
 
     # Load the settings from the 'rc' file. We merge them into the existing settings.
     def self.load
@@ -93,6 +163,7 @@ module Tkri
         if settings.instance_of? Hash
           COMMAND.merge!(settings['command']) if settings['command']
           TAGS.merge!(settings['tags']) if settings['tags']
+          BINDINGS.merge!(settings['bindings']) if settings['bindings']
         end
       end
     end
@@ -115,6 +186,29 @@ def self.hash_to_configuration(hash)
     ret[:font] = TkFont.new(ret[:font])
   end
   return ret
+end
+
+# Attachs Settings::BINDINGS to a certain widget.
+def self.attach_bindings(widget, widget_id_string)
+  Tkri::Settings::BINDINGS.each_pair { |ignored_key, b|
+    if (b[:source] == widget_id_string)
+      keys = Array(b[:key])
+      if b[:key] == 'Key-Return'
+        keys.push 'Key-KP_Enter'
+      end
+      keys.each { |key|
+        widget.bind(key) { |event|
+          skip = (b[:when_not_tkentry] and event.widget.class == TkEntry)
+          if !skip
+            if b[:command] # Sometimes we're only interested in :cancel_default.
+              Tkri.the_application.invoke_command(b[:command], event)
+            end
+          end
+          break if b[:cancel_default]
+        }
+      }
+    end
+  }
 end
 
 # A Tab encapsulates an @address box, where you type the topic to go to; a "Go"
@@ -162,28 +256,44 @@ class Tab < TkFrame
       @info.tag_configure(name, Tkri::hash_to_configuration(hash))
     end
 
-    # Key and mouse bindings
-    @address.bind('Key-Return')   { go }
-    @address.bind('Key-KP_Enter') { go }
-    @info.bind('ButtonRelease-1') { |e| go_xy_word(e.x, e.y) }
-    # If I make the following "ButtonRelease-2" instead, the <PasteSelection>
-    # cancellation that follows won't work. Strange.
-    @info.bind('Button-2')        { |e| go_xy_word(e.x, e.y, true) }
-    @info.bind('Key-Return')      { go_caret_word(); break }
-    @info.bind('Key-KP_Enter')    { go_caret_word(); break }
-    @info.bind('ButtonRelease-3') { |e| back }
-    @info.bind('Key-BackSpace')   { |e| back; break }
-  
-    # Tk doesn't support "read-only" text widget. We "disable" the following
-    # keys explicitly (using 'break'). We also forward these search keys to
-    # @app.
-    @info.bind('<PasteSelection>') { break }
-    @info.bind('Key-slash') { @app.search;      break }
-    @info.bind('Key-n')     { @app.search_next; break }
-    @info.bind('Key-N')     { @app.search_prev; break }
-    @info.bind('Key-u')     { @app.go_up;       break }
+    Tkri.attach_bindings @address, 'addressbox'
+    Tkri.attach_bindings @info, 'info'
 
     @history = []
+  end
+
+  def interactive_history_back e
+    back
+  end
+
+  def interactive_goto_topic_in_addressbox e
+    go
+  end
+  
+  def interactive_goto_topic_under_mouse e
+    go_xy_word(e.x, e.y)
+  end
+
+  def interactive_goto_topic_under_mouse_in_new_tab e
+    go_xy_word(e.x, e.y, true)
+  end
+
+  def interactive_goto_topic_under_caret_or_selected e
+    if get_selection.length > 0
+      go get_selection
+    else
+      go_caret_word()
+    end
+  end
+
+  # It seeks RubyTk doesn't support the the getSelected method for Text widgets.
+  # So here's a method of our own to get the selection.
+  def get_selection
+    begin
+      @info.get('sel.first', 'sel.last')
+    rescue
+      ''
+    end
   end
 
   # Moves the keyboard focus to the address box. Also, selects all the
@@ -192,6 +302,10 @@ class Tab < TkFrame
     @address.selection_range('0', 'end')
     @address.icursor = 'end'
     @address.focus
+  end
+
+  def interactive_focus_address e
+    focus_address
   end
 
   # Finds the next occurrence of a word.
@@ -247,7 +361,7 @@ class Tab < TkFrame
   end
 
   # Go "up". That is, if we're browsing a method, go to the class.
-  def go_up
+  def interactive_go_up e
     if topic and topic =~ /(.*)(::|#|\.)/
       @app.go $1
     end
@@ -458,11 +572,11 @@ class Tabsbar < TkFrame
     build_buttons
   end
 
-  def set_current_tab new
+  def set_current_tab_by_index new
     @buttons.each_with_index do |b, i|
       b.relief = (i == new) ? 'sunken' : 'raised'
     end
-    @tabs.set_current_tab new
+    @tabs.set_current_tab_by_index new
   end
 
   def build_buttons
@@ -471,8 +585,8 @@ class Tabsbar < TkFrame
 
     @tabs.each_with_index do |tab, i|
       b = TkButton.new(self, :text => (tab.topic || '<new>')).pack :side => 'left'
-      b.command { set_current_tab i }
-      b.bind('Button-2') { @tabs.close tab }
+      b.command { set_current_tab_by_index i }
+      Tkri.attach_bindings b, 'tabbutton'
       @buttons << b
     end
 
@@ -480,7 +594,7 @@ class Tabsbar < TkFrame
     plus.command { @tabs.new_tab }
     @buttons << plus
 
-    set_current_tab @tabs.get_current_tab
+    set_current_tab_by_index @tabs.current_tab_as_index
   end
 end
 
@@ -501,32 +615,76 @@ class Tabs < TkFrame
     tab = Tab.new(self, @app)
     tab.focus_address
     @tabs << tab
-    set_current_tab(@tabs.size - 1)
-    @app.refresh_tabsbar
+    set_current_tab_by_index(@tabs.size - 1, true)
+#    @app.refresh_tabsbar
+  end
+
+  def interactive_new_tab e
+    new_tab
   end
 
   def close(tab)
     if (@tabs.size > 1 and i = @tabs.index(tab))
       @tabs.delete_at i
       tab.destroy
-      set_current_tab(@current - 1) if @current >= i and @current > 0
+      set_current_tab_by_index(@current - 1) if @current >= i and @current > 0
       @app.refresh_tabsbar
     end
   end
 
-  def set_current_tab(new)
-    self.each_with_index do |tab, i|
-      if i == new; tab.show; else tab.hide; end
+  def set_current_tab_by_index(tab_index, refresh=false)
+    if tab_index < @tabs.size
+      self.each_with_index do |tab, i|
+        if i == tab_index;
+          tab.show
+          # Unless we focus on the new tab, the focus may stay at the old tab's address box.
+          tab.focus
+        else
+          tab.hide
+        end
+      end
+      @current = tab_index
     end
-    @current = new
+    @app.refresh_tabsbar if refresh
   end
 
-  def get_current_tab
+  def switch_to(tab_index)
+    set_current_tab_by_index(tab_index, true)
+  end
+
+  def interactive_switch_to_tab_0 e; switch_to 0; end
+  def interactive_switch_to_tab_1 e; switch_to 1; end
+  def interactive_switch_to_tab_2 e; switch_to 2; end
+  def interactive_switch_to_tab_3 e; switch_to 3; end
+  def interactive_switch_to_tab_4 e; switch_to 4; end
+  def interactive_switch_to_tab_5 e; switch_to 5; end
+  def interactive_switch_to_tab_6 e; switch_to 6; end
+  def interactive_switch_to_tab_7 e; switch_to 7; end
+  def interactive_switch_to_tab_8 e; switch_to 8; end
+  def interactive_switch_to_tab_9 e; switch_to 9; end
+
+  def interactive_switch_to_prev_tab e
+    new = current_tab_as_index - 1
+    new = @tabs.size - 1 if new < 0
+    set_current_tab_by_index(new, true)
+  end
+
+  def interactive_switch_to_next_tab e
+    new = current_tab_as_index + 1
+    new = 0 if new >= @tabs.size
+    set_current_tab_by_index(new, true)
+  end
+
+  def current_tab_as_index
     return @current
   end
 
-  def current
-    @tabs[get_current_tab]
+  def current_tab
+    @tabs[current_tab_as_index]
+  end
+
+  def interactive_close_tab e
+    close current_tab
   end
 
   def each
@@ -539,21 +697,25 @@ end
 
 class App
 
+
   def initialize
     @root = root = TkRoot.new { title 'Tkri' }
     @search_word = nil
+    
+    Tkri.the_application = self
     
     Settings.load
    
     menu_spec = [
       [['File', 0],
-        ['Close tab', proc { @tabs.close @tabs.current }, 0, 'Ctrl+W' ],
+        ['New tab', proc { execute 'interactive_new_tab' }, 0, 'Ctrl+T' ],
+        ['Close tab', proc { execute 'interactive_close_tab' }, 0, 'Ctrl+W' ],
         '---',
-        ['Quit', proc { exit }, 0, 'Ctrl+Q' ]],
+        ['Quit', proc { execute 'interactive_quit' }, 0, 'Ctrl+Q' ]],
       [['Search', 0],
-        ['Search', proc { search }, 0, '/'],
-        ['Repeat search', proc { search_next }, 0, 'n'],
-        ['Repeat backwards', proc { search_prev }, 7, 'N']],
+        ['Search', proc { execute 'interactive_initiate_search' }, 0, '/'],
+        ['Repeat search', proc { execute 'interactive_search_next' }, 0, 'n'],
+        ['Repeat backwards', proc { execute 'interactive_search_prev' }, 7, 'N']],
       # The following :menu_name=>'help' has no effect, but it should have...
       # probably a bug in RubyTK.
       [['Help', 0, { :menu_name => 'help' }],
@@ -565,20 +727,6 @@ class App
     ]
     TkMenubar.new(root, menu_spec).pack(:side => 'top', :fill => 'x')
 
-    root.bind('Control-q') { exit }
-    root.bind('Control-w') { @tabs.close @tabs.current }
-    root.bind('Control-l') { @tabs.current.focus_address }
-   
-    { 'Key-slash' => 'search',
-      'Key-n'     => 'search_next',
-      'Key-N'     => 'search_prev',
-      'Key-u'     => 'go_up',
-    }.each do |event, method|
-      root.bind(event) { |e|
-        send(method) if e.widget.class != TkEntry
-      }
-    end
-
     @tabs = Tabs.new(root, self) {
       pack :side => 'top', :fill => 'both', :expand => true
     }
@@ -588,6 +736,31 @@ class App
     @statusbar = TkLabel.new(root, :anchor => 'w') {
       pack :side => 'bottom', :fill => 'x'
     }
+
+    Tkri::attach_bindings root, 'root'
+  end
+
+  # Invokes an "interactive" command (see Settings::BINDINGS).
+  # The command is searched in App, Tabs, Tab, in this order. 
+  def invoke_command(command, event)
+    possible_targets = [self, @tabs, @tabs.current_tab]
+    possible_targets.each { |target|
+      if target.respond_to?(command, true)
+        target.send(command, event)
+        break
+      end
+    }
+  end
+
+  # Execute is the same as invoke_command() except that we don't
+  # provide an event. It's existence is for aesthetics' sake only.
+  # It is used in menus.
+  def execute(command)
+    invoke_command(command, nil)
+  end
+
+  def interactive_quit e
+    exit
   end
 
   def run
@@ -596,8 +769,8 @@ class App
   
   # Navigates to some topic. This method simply delegates to the current tab.
   def go(topic=nil, newtab=false)
-    @tabs.new_tab if newtab and not @tabs.current.new?
-    @tabs.current.go topic
+    @tabs.new_tab if newtab and not @tabs.current_tab.new?
+    @tabs.current_tab.go topic
   end
 
   # Sets the text to show in the status bar.
@@ -608,33 +781,29 @@ class App
   def refresh_tabsbar
     @tabsbar.build_buttons if @tabsbar
   end
-  
-  def search_prev
+
+  def interactive_search_prev e
     if @search_word
-      @tabs.current.search_prev_word @search_word
+      @tabs.current_tab.search_prev_word @search_word
     end
   end
-  
-  def search_next
+
+  def interactive_search_next e
     if @search_word
-      @tabs.current.search_next_word @search_word
+      @tabs.current_tab.search_next_word @search_word
     else
-      search
+      interactive_initiate_search nil
     end
   end
 
-  def go_up
-    @tabs.current.go_up
-  end
-
-  def search
+  def interactive_initiate_search e
     self.status = 'Type the string to search'
     entry = TkEntry.new(@root).pack(:fill => 'x').focus
     ['Key-Return', 'Key-KP_Enter'].each do |event|
       entry.bind(event) {
         self.status = ''
         @search_word = entry.get
-        @tabs.current.search_next_word entry.get
+        @tabs.current_tab.search_next_word entry.get
         entry.destroy
       }
     end
@@ -645,7 +814,7 @@ class App
       }
     end
     entry.bind('KeyRelease') {
-      @tabs.current.highlight_word entry.get
+      @tabs.current_tab.highlight_word entry.get
     }
   end
 
@@ -714,21 +883,32 @@ EOS
 
   def help_key_bindings
     helpbox('Help: Key bindings', <<EOS)
+These are the *default* bindings. They are configurable via the 'rc' file.
+
 Left mouse button
     Navigate to the topic under the cursor.
 Middle mouse button
     Navigate to the topic under the cursor. Opens in a new tab.
 Right mouse button
     Move back in the history. 
-Ctrl+W. Or right mouse button, on a tab button
+Ctrl+W. Or middle mouse button, on a tab button
     Close the tab (unless this is the only tab).
 Ctrl+L
     Move the keyboard focus to the "address" box, where you can type a topic.
+Ctrl+T
+    New tab.
+Alt-1 .. Alt-9, Ctrl-PgUp, Ctrl-PgDn
+    Swith to a certain, or to the next/previous one.
 u
     Goes "up" one level. That is, if you're browsing Module::Class#method,
     you'll be directed to Module::Class. Press 'u' again for Module.
+Enter
+    Go to the topic under the caret, or, if some text is selected, to the
+    topic selected.
 /
-    Find string in page.
+    Find string in page. 
+n, N
+    Jump to next/previous finds.
 EOS
   end
 
@@ -753,6 +933,10 @@ Left-clicking on a word doesn't yet send you to a new page. It's
 *releasing* the button that sends you there. This makes it possible to
 select pieces of code: left-click, then drag, then release; since some
 text is now selected, Tkri figures out that's all you wanted.
+
+When using Enter to go to a selected topic, note that it's easier to
+hit the Enter of the keypad, with your thumb, because it's near the mouse
+(provided you're right-handed).
 EOS
   end
 
