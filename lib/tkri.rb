@@ -100,6 +100,7 @@ module Tkri
       'b1006' => { :key => 'Control-Key-Next', :source => 'root', :command => 'interactive_switch_to_next_tab' },
 
       'b1008' => { :key => 'ButtonRelease-1', :source => 'info', :command => 'interactive_goto_topic_under_mouse' },
+      'b1008b' => { :key => 'Control-Button-1', :source => 'info', :command => 'interactive_goto_topic_under_caret_or_selected', :cancel_default => true },
       'b1011' => { :key => 'Key-Return', :source => 'info', :command => 'interactive_goto_topic_under_caret_or_selected', :cancel_default => true },
       'b1012' => { :key => 'Key-Return', :source => 'addressbox', :command => 'interactive_goto_topic_in_addressbox' },
       # If I make the following "ButtonRelease-2" instead, the <PasteSelection>
@@ -895,6 +896,8 @@ These are the *default* bindings. They are configurable via the 'rc' file.
 
 Left mouse button
     Navigate to the topic under the cursor.
+Ctrl + Left mouse button
+    Navigate to the topic selected (marked) with the mouse.
 Middle mouse button
     Navigate to the topic under the cursor. Opens in a new tab.
 Right mouse button
@@ -942,9 +945,10 @@ Left-clicking on a word doesn't yet send you to a new page. It's
 select pieces of code: left-click, then drag, then release; since some
 text is now selected, Tkri figures out that's all you wanted.
 
-When using Enter to go to a selected topic, note that it's easier to
-hit the Enter of the keypad, with your thumb, because it's near the mouse
-(provided you're right-handed).
+When using Enter to go to a selected (marked) topic, note that it's easier
+to hit the Enter of the keypad, with your thumb, because it's near the
+mouse (provided you're right-handed). As a bonus, you can navigate with one
+hand only.
 EOS
   end
 
