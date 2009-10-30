@@ -6,6 +6,11 @@
 #
 # @author Mooffie <mooffie@gmail.com>
 
+
+#
+# Bug: see ri for Object. Clicking 'pretty_print' doens't navigate to right place...
+#
+
 require 'tk'
 
 module Tkri
@@ -456,8 +461,9 @@ class Tab < TkFrame
 
   # Returns the first class mentioned before the cursor.
   def get_previous_class cursor
-    ret = @info.rsearch_with_length(/[A-Z]\w*/, cursor)
-    return ret[0].empty? ? nil : ret[2]
+    # The class (or module) is followed by a '('
+    ret = @info.rsearch_with_length(/\s\S+\(/, cursor)
+    return ret[0].empty? ? nil : ret[2][1..-2] # skip the first char (a space) and the last (a parentheses)
   end
 
   # Get the "topic" at a certain postion.
@@ -495,9 +501,14 @@ class Tab < TkFrame
     @info.tag_add('keyword', '%s linestart + %d chars' % [ position, a ],
                              '%s linestart + %d chars' % [ position, a+word.length ])
     word.strip!
-    
+
     return nil if word.empty?
     return nil if word =~ /^-+$/ # A special case: a line of '-----'
+
+    if word =~ /^#/
+      # Sometimes there's just "#method".
+      word = @topic + word
+    end
 
     case get_previous_header(position)
     when 'Instance methods:'
