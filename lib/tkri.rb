@@ -934,11 +934,10 @@ class App
       if text == "nil\n"
         text = 'Topic "%s" not found.' % topic
       end
+      text = _post_process_text(text)
       @ri_cache[topic] = text
       @cached_topics << topic
     end
-
-    text = _post_process_text(text)
 
     # Remove the oldest topic from the cache
     if @cached_topics.length > 20
@@ -950,12 +949,29 @@ class App
 
   # Enhance the ri text a bit.
   def _post_process_text(text)
+
     # Make the "Multiple choices" output easier to read.
     if text.match /Multiple choices/
       text.gsub! /,\s+/, "\n"
       text.gsub! /^ */,  ""
       text.gsub! /\n/,   "\n     "
     end
+
+    # Highlight the names of included modules.
+    bold_on  = "\x1b[1m"
+    bold_off = "\x1b[0m"
+    parts = text.split /([\r\n]\S*Includes:.*?[\r\n][\r\n])/m
+    parts.map! { |s|
+      if s =~ /[\r\n]\S*Includes:/
+        # Modules have parentheses following them.
+        s.gsub! /(\S+)\(/, bold_on + '\1' + bold_off + '('
+      else
+        s
+      end
+    }
+    text = parts.join
+
+    return text
   end
 
   def helpbox(title, text)
