@@ -938,19 +938,24 @@ class App
       @cached_topics << topic
     end
 
+    text = _post_process_text(text)
+
+    # Remove the oldest topic from the cache
+    if @cached_topics.length > 20
+      @ri_cache.delete @cached_topics.shift
+    end
+
+    return text
+  end
+
+  # Enhance the ri text a bit.
+  def _post_process_text(text)
     # Make the "Multiple choices" output easier to read.
     if text.match /Multiple choices/
       text.gsub! /,\s+/, "\n"
       text.gsub! /^ */,  ""
       text.gsub! /\n/,   "\n     "
     end
-
-    # Remove the oldest topic from the cache
-    if @cached_topics.length > 20
-      @ri_cache.delete @cached_topics.shift
-    end
-    
-    return text
   end
 
   def helpbox(title, text)
