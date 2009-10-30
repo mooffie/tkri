@@ -6,11 +6,6 @@
 #
 # @author Mooffie <mooffie@gmail.com>
 
-
-#
-# Bug: see ri for Object. Clicking 'pretty_print' doens't navigate to right place...
-#
-
 require 'tk'
 
 module Tkri
