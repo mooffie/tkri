@@ -44,7 +44,7 @@ module Tkri
       'mswin'       => 'qri.bat -f ansi "%s" 2>&1',
     }
 
-    TAGS = {
+    VISUALS = {
       # The '__base__' attibutes are applied for every textfield and textarea.
       # Set the background color and font to whatever you like.
       #
@@ -53,14 +53,16 @@ module Tkri
       # name (i.e., one of: 'courier', 'times', 'helvetica') at the end to serve
       # as a fallback.
       '__base__' => { :background => '#ffeeff', :font => { :family => ['Bitstream Vera Sans Mono', 'Menlo', 'Monaco', 'Courier'], :size => 10 } },
-      'bold'     => { :foreground => 'blue' },
-      'italic'   => { :foreground => '#6b8e23' }, # greenish
-      'code'     => { :foreground => '#1874cd' }, # blueish
-      'header2'  => { :background => '#ffe4b5', :font => { :family => ['Geneva', 'Arial', 'Helvetica'], :size => 12 } },
-      'header3'  => { :background => '#ffe4b5', :font => { :family => ['Geneva', 'Arial', 'Helvetica'], :size => 14 } },
-      'keyword'  => { :foreground => 'red' },
-      'search'   => { :background => 'yellow' },
-      'hidden'   => { :elide => true },
+      'bold'     => { :foreground => 'blue', :is_tag => true },
+      'italic'   => { :foreground => '#6b8e23', :is_tag => true }, # greenish
+      'code'     => { :foreground => '#1874cd', :is_tag => true }, # blueish
+      'header2'  => { :background => '#ffe4b5', :font => { :family => ['Geneva', 'Arial', 'Helvetica'], :size => 12 }, :is_tag => true },
+      'header3'  => { :background => '#ffe4b5', :font => { :family => ['Geneva', 'Arial', 'Helvetica'], :size => 14 }, :is_tag => true },
+      'keyword'  => { :foreground => 'red', :is_tag => true },
+      'search'   => { :background => 'yellow', :is_tag => true },
+      'hidden'   => { :elide => true, :is_tag => true},
+      'tab_button' => { :padx => 10, :font => { :family => ['Bitstream Vera Sans Mono', 'Menlo', 'Monaco', 'Courier'], :size => 10 } },
+      'go_button' => { :padx => 20 },
     }
 
     BINDINGS = {
@@ -113,6 +115,8 @@ module Tkri
       # History.
       'b1013' => { :key => 'ButtonRelease-3', :source => 'info', :command => 'interactive_history_back' },
       'b1014' => { :key => 'Key-BackSpace', :source => 'info', :command => 'interactive_history_back', :cancel_default => true },
+      'b1014b' => { :key => 'Alt-Key-Left', :source => 'root', :command => 'interactive_history_back', :cancel_default => true  },
+      'b1014c' => { :key => 'Alt-Key-Right', :source => 'root', :command => 'interactive_history_forward', :cancel_default => true  },
 
       # Tk doesn't support read-only rext widgets. So for every "ascii" global binding we also
       # need to duplicate it on the 'info' widget, :cancel_default'ing it.
@@ -142,7 +146,7 @@ module Tkri
         f.puts "# You may erase any setting in this file for which you want to use"
         f.puts "# the default value."
         f.puts "#"
-        f.puts({ 'command' => COMMAND, 'tags' => TAGS, 'bindings' => BINDINGS }.to_yaml)
+        f.puts({ 'command' => COMMAND, 'visuals' => VISUALS, 'bindings' => BINDINGS }.to_yaml)
       end
     end
 
@@ -154,7 +158,7 @@ module Tkri
 
   module Settings
     COMMAND = DefaultSettings::COMMAND.dup
-    TAGS = DefaultSettings::TAGS.dup
+    VISUALS = DefaultSettings::VISUALS.dup
     BINDINGS = DefaultSettings::BINDINGS
 
     # Load the settings from the 'rc' file. We merge them into the existing settings.
@@ -164,33 +168,84 @@ module Tkri
         settings = YAML.load_file(Tkri.get_rc_file_path)
         if settings.instance_of? Hash
           COMMAND.merge!(settings['command']) if settings['command']
-          TAGS.merge!(settings['tags']) if settings['tags']
+          VISUALS.merge!(settings['visuals']) if settings['visuals']
           BINDINGS.merge!(settings['bindings']) if settings['bindings']
         end
       end
+    end
+
+    # get_configuration() converts any of the VISUAL hashes, above, to a hash suitable
+    # for use in Tk. Corrently, it only converts the :font attribute to a TkFont instance.
+    def self.get_configuration(name)
+      h = VISUALS[name].dup
+      h.delete(:is_tag)
+      if h[:font].instance_of? Hash
+        h[:font] = h[:font].dup
+        if h[:font][:family]
+          availables = TkFont.families.map { |s| s.downcase }
+          desired = Array(h[:font][:family]).map { |s| s.downcase }
+          # Select the first family available on this system.
+          h[:font][:family] = (desired & availables).first || 'courier'
+        end
+        h[:font] = TkFont.new(h[:font])
+      end
+      return h
     end
   end
 
 HistoryEntry = Struct.new(:topic, :cursor, :yview)
 
-# hash_to_configuration() converts any of the TAG hashes, above, to a hash suitable
-# for use in Tk. Corrently, it only converts the :font attribute to a TkFont instance.
-def self.hash_to_configuration(hash)
-  ret = hash.dup
-  if ret[:font].instance_of? Hash
-    ret[:font] = ret[:font].dup
-    if ret[:font][:family]
-      availables = TkFont.families.map { |s| s.downcase }
-      desired = Array(ret[:font][:family]).map { |s| s.downcase }
-      # Select the first family available on this system.
-      ret[:font][:family] = (desired & availables).first || 'courier'
-    end
-    ret[:font] = TkFont.new(ret[:font])
+class History
+  def initialize
+    @arr = []
+    @current = -1
   end
-  return ret
+
+  def size
+    @arr.size
+  end
+
+  def current
+    if @current >= 0
+      @arr[@current]
+    else
+      nil
+    end
+  end
+
+  def back
+    if @current > 0
+      @current -= 1
+    end
+    current
+  end
+
+  def foreward
+    if @current < @arr.size - 1
+      @current += 1
+    end
+  end
+
+  def add(entry)
+    @current += 1
+    @arr[@current] = entry
+    # Adding an entry removes all entries in the "future".
+    @arr.slice!(@current + 1, @arr.size)
+  end
+
+  def at_beginning
+    @current <= 0
+  end
+
+  def at_end
+    @current == @arr.size - 1;
+  end
 end
 
 # Attachs Settings::BINDINGS to a certain widget.
+#
+# Ideally this should be a method of TkWidget, but for some reason widgets don't
+# seem to inherit methods I define on TkWidget.
 def self.attach_bindings(widget, widget_id_string)
   Tkri::Settings::BINDINGS.each_pair { |ignored_key, b|
     if (b[:source] == widget_id_string)
@@ -229,13 +284,14 @@ class Tab < TkFrame
     addressbar = TkFrame.new(self) { |ab|
       pack :side => 'top', :fill => 'x'
       TkButton.new(ab) {
+        configure Settings::get_configuration('go_button')
         text 'Go'
         command { app.go }
         pack :side => 'right'
       }
     }
     @address = TkEntry.new(addressbar) {
-      configure Tkri::hash_to_configuration(Settings::TAGS['__base__'])
+      configure Settings::get_configuration('__base__')
       configure :width => 30
       pack :side => 'left', :expand => true, :fill => 'both'
     }
@@ -245,7 +301,7 @@ class Tab < TkFrame
     #
     _frame = self
     @info = TkText.new(self) { |t|
-      configure Tkri::hash_to_configuration(Settings::TAGS['__base__'])
+      configure Settings::get_configuration('__base__')
       pack :side => 'left', :fill => 'both', :expand => true
       TkScrollbar.new(_frame) { |s|
         pack :side => 'right', :fill => 'y'
@@ -254,18 +310,16 @@ class Tab < TkFrame
       }
     }
 
-    Settings::TAGS.each do |name, hash|
-      @info.tag_configure(name, Tkri::hash_to_configuration(hash))
+    Settings::VISUALS.each do |name, hash|
+      if hash[:is_tag]
+        @info.tag_configure(name, Settings::get_configuration(name))
+      end
     end
 
     Tkri.attach_bindings @address, 'addressbox'
     Tkri.attach_bindings @info, 'info'
 
-    @history = []
-  end
-
-  def interactive_history_back e
-    back
+    @history = History.new
   end
 
   def interactive_goto_topic_in_addressbox e
@@ -288,7 +342,7 @@ class Tab < TkFrame
     end
   end
 
-  # It seeks RubyTk doesn't support the the getSelected method for Text widgets.
+  # It seems RubyTk doesn't support the the getSelected method for Text widgets.
   # So here's a method of our own to get the selection.
   def get_selection
     begin
@@ -510,22 +564,49 @@ class Tab < TkFrame
   end
 
   # Navigates to some topic.
-  def go(topic=nil, skip_history=false)
+  def go(topic=nil)
     topic = (topic || @address.get).strip
     return if topic.empty?
-    if @topic and not skip_history
-      # Push current topic into history.
-      @history << HistoryEntry.new(@topic, @info.index('insert'), @info.yview[0])
-    end
     @topic = fixup_topic(topic)
-    @app.status = 'Loading "%s"...' % @topic
+    # First, save the cursor position in the current history entry.
+    store_in_history
+    # Next, add a new entry to the history.
+    @history.add HistoryEntry.new(@topic, nil, nil)
+    # Finally, load the topic.
+    _load_topic @topic
+  end
+
+  # Call this method before switching to another topic. This
+  # method saves the cursor position in the history.
+  def store_in_history
+    if current = @history.current
+      current.cursor = @info.index('insert')
+      current.yview = @info.yview[0]
+    end
+  end
+
+  # Call this method after moving fack and forth in the history.
+  # This method restores the topic and cursor position recorded
+  # in the current history entry.
+  def restore_from_history
+    if current = @history.current
+      @topic = current.topic
+      _load_topic(topic) do
+        @info.yview_moveto current.yview
+        set_cursor current.cursor
+      end
+    end
+  end
+
+  def _load_topic(topic)
+    @app.status = 'Loading "%s"...' % topic
     @address.delete('0', 'end')
-    @address.insert('end', @topic)
+    @address.insert('end', topic)
     focus_address
     # We need to give our GUI a chance to redraw itself, so we run the
     # time-consuming 'ri' command "in the next go".
     TkAfter.new 100, 1 do
-      ri = @app.fetch_ri(@topic)
+      ri = @app.fetch_ri(topic)
       set_ansi_text(ri)
       @app.refresh_tabsbar
       @app.status = ''
@@ -534,14 +615,22 @@ class Tab < TkFrame
       yield if block_given?
     end.start
   end
+  
+  # Navigate to the previous topic in history.
+  def interactive_history_back e
+    if not @history.at_beginning
+      store_in_history
+      @history.back
+      restore_from_history
+    end
+  end
 
-  # Navigate to the previous topic viewed.
-  def back
-    if (entry = @history.pop)
-      go(entry.topic, true) do
-        @info.yview_moveto entry.yview
-        set_cursor entry.cursor
-      end
+  # Navigate to the next topic in history.
+  def interactive_history_forward e
+    if not @history.at_end
+      store_in_history
+      @history.foreward
+      restore_from_history
     end
   end
 
@@ -586,11 +675,13 @@ class Tabsbar < TkFrame
     @buttons = []
     @tabs.each_with_index do |tab, i|
       b = TkButton.new(self, :text => (tab.topic || '<new>')).pack :side => 'left'
+      b.configure Settings::get_configuration('tab_button')
       b.command { set_current_tab_by_index i }
       Tkri.attach_bindings b, 'tabbutton'
       @buttons << b
     end
-    plus = TkButton.new(self, :text => '+').pack :side => 'left'
+    plus = TkButton.new(self, :text => '+').pack :side => 'left', :padx => 10
+    plus.configure Settings::get_configuration('tab_button')
     plus.command { @tabs.new_tab }
     @buttons << plus
     set_current_tab_by_index @tabs.current_tab_as_index
@@ -621,7 +712,6 @@ class Tabs < TkFrame
     tab.focus_address
     @tabs << tab
     set_current_tab_by_index(@tabs.size - 1, true)
-#    @app.refresh_tabsbar
   end
 
   def interactive_new_tab e
@@ -866,7 +956,7 @@ class App
   def helpbox(title, text)
     w = TkToplevel.new(:title => title)
     t = TkText.new(w, :height => text.count("\n"), :width => 80).pack.insert('1.0', text)
-    t.configure Tkri::hash_to_configuration(Settings::TAGS['__base__'])
+    t.configure Settings::get_configuration('__base__')
     TkButton.new(w, :text => 'Close', :command => proc { w.destroy }).pack
   end
 
@@ -900,16 +990,18 @@ Ctrl + Left mouse button
     Navigate to the topic selected (marked) with the mouse.
 Middle mouse button
     Navigate to the topic under the cursor. Opens in a new tab.
-Right mouse button
-    Move back in the history. 
+Right mouse button, Backspace, Alt+Left
+    Move back in the history.
+Alt+Right
+    Move foreward in the history.
 Ctrl+W. Or middle mouse button, on a tab button
     Close the tab (unless this is the only tab).
 Ctrl+L
     Move the keyboard focus to the "address" box, where you can type a topic.
 Ctrl+T
     New tab.
-Alt-1 .. Alt-9, Ctrl-PgUp, Ctrl-PgDn
-    Swith to a certain, or to the next/previous one.
+Alt+1 .. Alt+9, Ctrl+PgUp, Ctrl+PgDn
+    Swith to a certain tab, or to the next/previous one.
 u
     Goes "up" one level. That is, if you're browsing Module::Class#method,
     you'll be directed to Module::Class. Press 'u' again for Module.
@@ -983,8 +1075,6 @@ Here's a list of known issues / bugs:
 
 ON THE WINDOWS PLATFORM:
 
-* Tkri looks ugly.
-
 * The mouse wheel works only if the keyboard focus is in the
   textarea. That's unfortunate. It's a Tk issue, not Tkri's.
 
@@ -994,7 +1084,7 @@ ON THE WINDOWS PLATFORM:
 
 ALL PLATFORMS:
 
-* There's a 'backward' command, but no 'forward' command.
+* No known issues.
 EOS
   end
 end
